@@ -20,7 +20,7 @@ from resources.localization_utils import MULTILINGUAL_PATTERNS
 logger = logging.getLogger(__name__)
 
 VERSION = "v2.1"
-GRIDS = "resources/grids_v2.1.json"
+GRIDS = "clembench/referencegame/resources/grids_v2.1.json"
 P1_MODE = "strict"  # "liberal"
 P2_MODE = "strict"  # "liberal"
 # modes relate to regex parsing:
@@ -189,7 +189,7 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
         :param template: filename of prompt template
         :return: prompt string
         """
-        with open(f"resources/initial_prompts/{self.lang}/{template}", encoding='utf8') as f:
+        with open(f"clembench/referencegame/resources/initial_prompts/{self.lang}/{template}", encoding='utf8') as f:
             prompt = f.read()
         return prompt
 
@@ -231,4 +231,4 @@ if __name__ == '__main__':
     for language in MULTILINGUAL_PATTERNS.keys():
         if language == "en":
             ReferenceGameInstanceGenerator().generate(
-                filename=f"instances_{VERSION}_{language}.json", lang=language)
+                filename=f"clembench/referencegame/in/instances_{VERSION}_{language}.json", lang=language)
