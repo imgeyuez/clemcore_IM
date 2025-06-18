@@ -17,6 +17,10 @@ from clemcore.clemgame import GameInstanceGenerator
 
 from resources.localization_utils import MULTILINGUAL_PATTERNS
 
+import random
+
+random.seed(9)
+
 logger = logging.getLogger(__name__)
 
 VERSION = "v2.1"
@@ -100,6 +104,17 @@ def select_distractors(target_grid: int, distances: list):
             min_distance += 1
     return id1, id2
 
+def has_adjacent_duplicate_targets(instances):
+    ''''
+    This function checks if there are adjacent dublicates
+    of instances 
+    (A target grid which is the same target twice in a row)
+    '''
+    for i in range(1, len(instances)):
+        if instances[i]['player_1_target_grid'] == instances[i-1]['player_1_target_grid']:
+            return True
+    return False
+
 
 class ReferenceGameInstanceGenerator(GameInstanceGenerator):
 
@@ -128,10 +143,64 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
 
             experiment = self.add_experiment(f"{grids_group}")
 
-            game_counter = 0
+            # game_counter = 0
+
+            all_instances = []
+
             for sample in samples:
+                
+                positions = [1, 2, 3]
+                random.shuffle(positions)
+
+                for i in positions:
+                    target_grid, second_grid, third_grid = sample
+
+                    instance_data = {}
+
+                    instance_data["player_1_prompt_header"] = player_a_prompt_header.replace('TARGET_GRID', target_grid)\
+                                                                                    .replace('SECOND_GRID', second_grid)\
+                                                                                    .replace('THIRD_GRID', third_grid)
+                    instance_data['player_1_target_grid'] = target_grid
+                    instance_data['player_1_second_grid'] = second_grid
+                    instance_data['player_1_third_grid'] = third_grid
+
+                    # create order of grids for player 2
+                    # extract target grid names from localization_utils
+                    targets = MULTILINGUAL_PATTERNS[self.lang]["p2_options"]
+                    assert len(targets) == 3
+
+                    if i == 1:
+                        first_grid = target_grid
+                        target_grid_name = [targets[0][0], "1"] # corresponds to "first"
+                    elif i == 2:
+                        first_grid = second_grid
+                        second_grid = target_grid
+                        target_grid_name = [targets[1][0], "2"] # corresponds to "second"
+                    elif i == 3:
+                        first_grid = third_grid
+                        third_grid = target_grid
+                        target_grid_name = [targets[2][0], "3"] # corresponds to "third"
+
+                    instance_data["player_2_prompt_header"] = player_b_prompt_header.replace('FIRST_GRID', first_grid)\
+                                                                                    .replace('SECOND_GRID', second_grid)\
+                                                                                    .replace('THIRD_GRID', third_grid)
+                    instance_data['player_2_first_grid'] = first_grid
+                    instance_data['player_2_second_grid'] = second_grid
+                    instance_data['player_2_third_grid'] = third_grid
+                    instance_data['target_grid_name'] = target_grid_name
+
+                    instance_data['player_1_response_pattern'] = self._generate_regex("p1")
+                    instance_data['player_2_response_pattern'] = self._generate_regex("p2")
+
+                    instance_data['lang'] = self.lang
+                    instance_data['p1_mode'] = P1_MODE
+                    instance_data['p2_mode'] = P2_MODE
+
+                    all_instances.append(instance_data)
+
                 # create three instances from each triplet, where the target for player 2 is in
                 # one of the three possible positions each (selecting one order for the other two)
+                '''
                 for i in [1, 2, 3]:
                     target_grid, second_grid, third_grid = sample
 
@@ -181,6 +250,23 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
                     game_instance['p2_mode'] = P2_MODE
 
                     game_counter += 1
+                    '''
+
+            random.shuffle(all_instances)
+
+            # shuffle instances as long as there are no adjacent dublicates
+            max_attempts = 100
+            attempt = 0 # needed 19 attepmts
+            while has_adjacent_duplicate_targets(all_instances) and attempt < max_attempts:
+                random.shuffle(all_instances)
+                attempt += 1
+
+            # add the instances to the experiment
+            experiment = self.add_experiment(f"{grids_group}")
+            for game_counter, instance in enumerate(all_instances):
+                game_instance = self.add_game_instance(experiment, game_counter)
+                game_instance.update(instance)
+
 
     def _load_prompt(self, template):
         """
@@ -217,7 +303,12 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
             # collect answer options for the given language
             # also allow models to output numbers,
             # as we can't do prompt engineering in all languages
-            response = f'{MULTILINGUAL_PATTERNS[self.lang]["p2_options"]}|1|2|3'
+            r = ''
+            for list in MULTILINGUAL_PATTERNS[self.lang]["p2_options"]:
+                for term in list:
+                    r = r + term + '|'
+            # response = f'{MULTILINGUAL_PATTERNS[self.lang]["p2_options"]}|1|2|3'
+            response = f'{r}1|2|3'
             # models are alowed to produce more than the label (but not following a newline)
             # because we can't do prompt-engineering in all languages and models tend to output "grid" or punctuation
             # after the answer from player 2
@@ -231,4 +322,4 @@ if __name__ == '__main__':
     for language in MULTILINGUAL_PATTERNS.keys():
         if language == "en":
             ReferenceGameInstanceGenerator().generate(
-                filename=f"clembench/referencegame/in/instances_{VERSION}_{language}.json", lang=language)
+                filename=f"instances_{VERSION}_{language}.json", lang=language)
