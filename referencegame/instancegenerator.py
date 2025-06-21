@@ -141,7 +141,7 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
             player_a_prompt_header = self._load_prompt("player_a_prompt_header.template")
             player_b_prompt_header = self._load_prompt("player_b_prompt_header.template")
 
-            experiment = self.add_experiment(f"{grids_group}")
+            # experiment = self.add_experiment(f"{grids_group}")
 
             # game_counter = 0
 
@@ -150,7 +150,7 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
             for sample in samples:
                 
                 positions = [1, 2, 3]
-                random.shuffle(positions)
+                # random.shuffle(positions)
 
                 for i in positions:
                     target_grid, second_grid, third_grid = sample
@@ -256,7 +256,7 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
 
             # shuffle instances as long as there are no adjacent dublicates
             max_attempts = 100
-            attempt = 0 # needed 19 attepmts
+            attempt = 0 # needed 1 attepmt
             while has_adjacent_duplicate_targets(all_instances) and attempt < max_attempts:
                 random.shuffle(all_instances)
                 attempt += 1
