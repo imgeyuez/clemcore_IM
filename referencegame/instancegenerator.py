@@ -19,7 +19,7 @@ from resources.localization_utils import MULTILINGUAL_PATTERNS
 
 import random
 
-random.seed(9)
+random.seed(42)
 
 logger = logging.getLogger(__name__)
 
@@ -104,16 +104,17 @@ def select_distractors(target_grid: int, distances: list):
             min_distance += 1
     return id1, id2
 
-def has_adjacent_duplicate_targets(instances):
+def has_adjacent_duplicate_samples(instances):
     ''''
     This function checks if there are adjacent dublicates
     of instances 
     (A target grid which is the same target twice in a row)
     '''
-    for i in range(1, len(instances)):
-        if instances[i]['player_1_target_grid'] == instances[i-1]['player_1_target_grid']:
+    for i in range(len(instances) - 1):
+        if instances[i]["sample_id"] == instances[i + 1]["sample_id"]:
             return True
     return False
+
 
 
 class ReferenceGameInstanceGenerator(GameInstanceGenerator):
@@ -122,11 +123,14 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
         super().__init__(os.path.dirname(__file__))
         self.lang = None
 
-    def on_generate(self, lang):
+    def on_generate(self, seed=None, lang=None):
         """
         Create instances into self.instances
         (Called by super().generate())
         """
+        if seed is not None:
+            random.seed(seed)
+
         self.lang = lang
 
         # load grids
@@ -147,12 +151,11 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
 
             all_instances = []
 
-            for sample in samples:
+            for sample_id, sample in enumerate(samples):
                 
-                positions = [1, 2, 3]
-                # random.shuffle(positions)
-
-                for i in positions:
+                # create three instances from each triplet, where the target for player 2 is in
+                # one of the three possible positions each (selecting one order for the other two)
+                for i in [1, 2, 3]:
                     target_grid, second_grid, third_grid = sample
 
                     instance_data = {}
@@ -196,74 +199,50 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
                     instance_data['p1_mode'] = P1_MODE
                     instance_data['p2_mode'] = P2_MODE
 
+                    instance_data["sample_id"] = sample_id  # Tag with sample group
                     all_instances.append(instance_data)
 
-                # create three instances from each triplet, where the target for player 2 is in
-                # one of the three possible positions each (selecting one order for the other two)
-                '''
-                for i in [1, 2, 3]:
-                    target_grid, second_grid, third_grid = sample
+            # random.shuffle(all_instances)
 
-                    game_instance = self.add_game_instance(experiment, game_counter)
-                    game_instance["player_1_prompt_header"] = player_a_prompt_header.replace('TARGET_GRID', target_grid)\
-                                                                                    .replace('SECOND_GRID', second_grid)\
-                                                                                    .replace('THIRD_GRID', third_grid)
-                    game_instance['player_1_target_grid'] = target_grid
-                    game_instance['player_1_second_grid'] = second_grid
-                    game_instance['player_1_third_grid'] = third_grid
+            # # shuffle instances as long as there are no adjacent dublicates
+            # max_attempts = 100
+            # attempt = 0 # needed 1 attepmt
+            # while has_adjacent_duplicate_samples(all_instances) and attempt < max_attempts:
+            #     random.shuffle(all_instances)
+            #     attempt += 1
 
-                    # create order of grids for player 2
-                    # extract target grid names from localization_utils
-                    targets = MULTILINGUAL_PATTERNS[self.lang]["p2_options"].split("|")
-                    assert len(targets) == 3
+            from collections import defaultdict
 
-                    first_grid = ""
-                    target_grid_name = []
-                    if i == 1:
-                        first_grid = target_grid
-                        # keep order from player 1 for second and third grid
-                        target_grid_name = [targets[0], "1"] # corresponds to "first"
-                    elif i == 2:
-                        first_grid = second_grid
-                        second_grid = target_grid
-                        # third grid stays third grid
-                        target_grid_name = [targets[1], "2"] # corresponds to "second"
-                    elif i == 3:
-                        first_grid = third_grid
-                        # second grid stays second grid
-                        third_grid = target_grid
-                        target_grid_name = [targets[2], "3"] # corresponds to "third"
+            by_target = defaultdict(list)
+            for instance in all_instances:
+                tgt = instance['player_1_target_grid']
+                by_target[tgt].append(instance)
 
-                    game_instance["player_2_prompt_header"] = player_b_prompt_header.replace('FIRST_GRID', first_grid)\
-                                                                                    .replace('SECOND_GRID', second_grid)\
-                                                                                    .replace('THIRD_GRID', third_grid)
-                    game_instance['player_2_first_grid'] = first_grid
-                    game_instance['player_2_second_grid'] = second_grid
-                    game_instance['player_2_third_grid'] = third_grid
-                    game_instance['target_grid_name'] = target_grid_name
+            # Shuffle instances for each target
+            for tgt in by_target:
+                random.shuffle(by_target[tgt])
 
-                    game_instance['player_1_response_pattern'] = self._generate_regex("p1")
-                    game_instance['player_2_response_pattern'] = self._generate_regex("p2")
+            # Now interleave without same-target adjacency
+            final_instances = []
+            last_target = None
 
-                    game_instance['lang'] = self.lang
-                    game_instance['p1_mode'] = P1_MODE
-                    game_instance['p2_mode'] = P2_MODE
+            while any(by_target.values()):
+                # Collect available targets that aren't same as last used
+                options = [t for t in by_target if by_target[t] and t != last_target]
+                
+                if not options:
+                    # No alternative, force pick any with content to break deadlock
+                    options = [t for t in by_target if by_target[t]]
 
-                    game_counter += 1
-                    '''
-
-            random.shuffle(all_instances)
-
-            # shuffle instances as long as there are no adjacent dublicates
-            max_attempts = 100
-            attempt = 0 # needed 1 attepmt
-            while has_adjacent_duplicate_targets(all_instances) and attempt < max_attempts:
-                random.shuffle(all_instances)
-                attempt += 1
+                # Choose a target randomly from allowed options
+                target = random.choice(options) # I let it pick them randomly BUT somehow every pattern is asked once in a row with solutions on grid 3, then 2 and then 1 :D so...not so random?
+                instance = by_target[target].pop()
+                final_instances.append(instance)
+                last_target = target
 
             # add the instances to the experiment
             experiment = self.add_experiment(f"{grids_group}")
-            for game_counter, instance in enumerate(all_instances):
+            for game_counter, instance in enumerate(final_instances):
                 game_instance = self.add_game_instance(experiment, game_counter)
                 game_instance.update(instance)
 

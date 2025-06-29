@@ -274,7 +274,7 @@ def main():
     # select one instance
     game_path = os.path.dirname(os.path.abspath(__file__))
     from clemcore.utils import file_utils
-    experiments = file_utils.load_json("in/instances.json", game_path)
+    experiments = file_utils.load_json("in/instances_v2.1_en.json", game_path)
     instance = experiments["experiments"][0]["game_instances"][0]
     master = ReferenceGameMaster(instance, ["gpt-3.5-turbo", "gpt-3.5-turbo"])
     master.setup(**instance)
