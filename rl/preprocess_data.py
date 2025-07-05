@@ -11,12 +11,61 @@ and -1 for games that failed.
 """
 import os
 import json
+import argparse
+
+def instance_tuplefication(turns):
+    # turn 0: GM to Player 1 - I 
+    # turn 1: Player 1 to GM - u 
+    # turn 2: GM to GM - parse vs. parse_wrong (reward)
+    # turn 3: GM to Player 2 - irrelevant 
+    # turn 4: Player 2 to GM - t 
+    # turn 5: GM to GM - parse vs. parse_wrong (reward)
+    
+    I = turns[0]["action"]["content"]
+    u = turns[1]["action"]["content"]
+
+    if len(turns) == 3:
+        t = ""
+        r = -1
+    
+    elif len(turns) == 6:
+        t = turns[4]["action"]["content"]
+
+        if turns[5]["action"]["type"] == "parse_correct":
+            r = 1
+        else:
+            r = -1
+
+    tuplefication = (I, u, t, r)
+    
+    return tuplefication
+
 
 # Path to the results directory
 RESULTS_PATH = r".\results"
 GAME = "referencegame"
 
-data = list()
+# parser = argparse.ArgumentParser(description='Results-folder from referencegame to process data for fine-tuning.')
+
+# parser.add_argument(
+#     '--result-folder-path',
+#     type=str,
+#     default=r".\results",
+#     help='Path to the results to process(default: r".\results")'
+# )
+# args = parser.parse_args()
+
+# create dataset in form of 
+# (I, u, t, r), 
+# with  I = prompt/description, 
+#       u = generated description (player 1)
+#       t = guess (player 2)
+#       r = reward (1 or -1)
+
+# data for comprehension
+dl = list()
+# data for generation
+ds = list()
 
 # Iterate through all experiments
 for experiment in os.scandir(RESULTS_PATH):
@@ -49,30 +98,22 @@ for experiment in os.scandir(RESULTS_PATH):
                     with open(file.path, "r") as f:
                         interactions = json.load(f)
                     
-                    turns = interactions["turns"]
-                    # turn 0: GM to Player 1 - irrelevant 
-                    # turn 1: Player 1 to GM - irrelevant 
-                    # turn 2: GM to GM - relevant (parse vs. parse_wrong)
-                    # turn 3: GM to Player 2 - irrelevant 
-                    # turn 4: Player 2 to GM - irrelevant 
-                    # turn 5: GM to GM - relevant (parse vs. parse_wrong)
+                    turns = interactions["turns"][0]
 
-                    # first check if game has 6 actions at all - not aborted in between
-                    if len(turns[0]) == 6:
-                        turn_action_3 = turns[0][2]["action"]
-                        turn_action_6 = turns[0][5]["action"]
+                    tuple_datapoint = instance_tuplefication(turns)
 
-                        if turn_action_3["type"] == "parsed" and turn_action_6["type"] == "parsed":
-                            with open(f"{episode.path}/reward_sign.txt", "w") as file:
-                                file.write("1")
-                        else:
-                            with open(f"{episode.path}/reward_sign.txt", "w") as file:
-                                file.write("-1")
-
+                    # determine to which dataset the instance belongs 
+                    player1 = interactions["players"]["Player 1"]["model_name"]
+                    if player1 == "human":
+                        # model_role = "guesser"
+                        dl.append(tuple_datapoint)
                     else:
-                        # game was aborted: reward sign of -1
-                        with open(f"{episode.path}/reward_sign.txt", "w") as file:
-                            file.write("-1")
+                        # model_role = "describer"
+                        ds.append(tuple_datapoint)
+
+                    
+
+
 
 
 # TO-DO: Adapt the path for when 
