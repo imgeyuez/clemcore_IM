@@ -12,12 +12,13 @@ import logging
 import os
 import json
 import Levenshtein # to calculate distance between grids
+from collections import defaultdict
+import random
 
 from clemcore.clemgame import GameInstanceGenerator
 
 from resources.localization_utils import MULTILINGUAL_PATTERNS
 
-import random
 
 random.seed(42)
 
@@ -174,15 +175,15 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
 
                     if i == 1:
                         first_grid = target_grid
-                        target_grid_name = [targets[0][0], "1"] # corresponds to "first"
+                        target_grid_name = [targets[0][0], targets[0][1], targets[0][2], targets[0][3], "1"] # corresponds to "first"
                     elif i == 2:
                         first_grid = second_grid
                         second_grid = target_grid
-                        target_grid_name = [targets[1][0], "2"] # corresponds to "second"
+                        target_grid_name = [targets[1][0], targets[1][1], targets[1][2], targets[1][3], "2"] # corresponds to "second"
                     elif i == 3:
                         first_grid = third_grid
                         third_grid = target_grid
-                        target_grid_name = [targets[2][0], "3"] # corresponds to "third"
+                        target_grid_name = [targets[2][0], targets[2][1], targets[2][2], targets[2][3], "3"] # corresponds to "third"
 
                     instance_data["player_2_prompt_header"] = player_b_prompt_header.replace('FIRST_GRID', first_grid)\
                                                                                     .replace('SECOND_GRID', second_grid)\
@@ -201,17 +202,6 @@ class ReferenceGameInstanceGenerator(GameInstanceGenerator):
 
                     instance_data["sample_id"] = sample_id  # Tag with sample group
                     all_instances.append(instance_data)
-
-            # random.shuffle(all_instances)
-
-            # # shuffle instances as long as there are no adjacent dublicates
-            # max_attempts = 100
-            # attempt = 0 # needed 1 attepmt
-            # while has_adjacent_duplicate_samples(all_instances) and attempt < max_attempts:
-            #     random.shuffle(all_instances)
-            #     attempt += 1
-
-            from collections import defaultdict
 
             by_target = defaultdict(list)
             for instance in all_instances:
