@@ -48,6 +48,7 @@ def instance_tuplefication(turns):
 # Path to the results directory
 RESULTS_PATH = r".\results"
 GAME = "referencegame"
+OUTPUT_PATH = ".\data.csv"
 
 # parser = argparse.ArgumentParser(description='Results-folder from referencegame to process data for fine-tuning.')
 
@@ -72,6 +73,8 @@ dl = list()
 ds = list()
 
 d_human = list()
+
+print("Start turning instances into tuple datapoints.")
 
 # Iterate through all experiments
 for experiment in os.scandir(RESULTS_PATH):
@@ -123,6 +126,13 @@ for experiment in os.scandir(RESULTS_PATH):
                         # model_role = "describer"
                         ds.append(tuple_datapoint)
 
+print("Finished turning instances into datapoints.")
+
+print(f"Number of comprehension datapoints: {len(dl)}.")
+print(f"Number of generation datapoints: {len(ds)}.")
+print(f"Number of pure human datapoints: {len(d_human)}.")
+
+print("Start extension of Datasets.")
 # extend dl and ds 
 dl_extended = dl.copy()
 ds_extended = ds.copy()
@@ -136,6 +146,20 @@ for datapoint in ds:
         dl_extended.append(datapoint)
 
 # export everything into a csv
+print("Finished dataset extensions.")
+
+print(f"Number total of comprehension datapoints: {len(dl_extended)}.")
+print(f"Number total of generation datapoints: {len(ds_extended)}.")
+
+try:
+    print("Writing results to file:", OUTPUT_PATH)
+    fields.to_csv(out_file, index=False)
+    print("File written successfully.")
+except Exception as e:
+    print("Error while writing the file:", e)
+    import traceback
+    traceback.print_exc()
+
 
 
 
