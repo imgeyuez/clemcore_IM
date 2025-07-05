@@ -12,6 +12,10 @@ and -1 for games that failed.
 import os
 import json
 import argparse
+import csv
+
+# To Do: include the generation of a json? csv? where it automatically checks if there are batches 
+# entered or not. If it doesn't exist yet, create it, otherwise add a next batch to it 
 
 def instance_tuplefication(turns):
     # turn 0: GM to Player 1 - I 
@@ -118,6 +122,22 @@ for experiment in os.scandir(RESULTS_PATH):
                     else:
                         # model_role = "describer"
                         ds.append(tuple_datapoint)
+
+# extend dl and ds 
+dl_extended = dl.copy()
+ds_extended = ds.copy()
+
+for datapoint in dl:
+    if datapoint[-1] == 1:
+        ds_extended.append(datapoint)
+
+for datapoint in ds:
+    if datapoint[-1] == 1:
+        dl_extended.append(datapoint)
+
+# export everything into a csv
+
+
 
 
 
