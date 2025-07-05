@@ -67,6 +67,8 @@ dl = list()
 # data for generation
 ds = list()
 
+d_human = list()
+
 # Iterate through all experiments
 for experiment in os.scandir(RESULTS_PATH):
     if not experiment.is_dir():
@@ -105,18 +107,19 @@ for experiment in os.scandir(RESULTS_PATH):
                     # determine to which dataset the instance belongs 
                     player1 = interactions["players"]["Player 1"]["model_name"]
                     if player1 == "human":
-                        # model_role = "guesser"
-                        dl.append(tuple_datapoint)
+                        # both players are human
+                        if interactions["players"]["Player 2"]["model_name"] == "human":
+                            d_human.append(tuple_datapoint)
+
+                        else:
+                            # model_role = "guesser"
+                            dl.append(tuple_datapoint)
+
                     else:
                         # model_role = "describer"
                         ds.append(tuple_datapoint)
 
-                    
 
-
-
-
-# TO-DO: Adapt the path for when 
 
 
 
