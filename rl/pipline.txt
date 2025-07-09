@@ -1,0 +1,42 @@
+1. Start from pretrained weights:
+
+    Load your pretrained LLaMA 8B model weights as the initial policy πθπθ​.
+
+2. Prepare your dataset:
+
+    Each data point is a tuple:
+    (prompt/context, description/action, reward)
+
+    The descriptions and rewards come from your logged data.
+
+3. For each data point:
+
+    Pass the prompt through the model to get the probability distribution over tokens.
+
+    Compute the log-probability of the recorded description (the action) under the current model.
+
+    Multiply this log-prob by the reward from the dataset to get the weighted loss (policy gradient estimate).
+
+4. Calculate gradients:
+
+    Backpropagate this weighted loss through the model.
+
+    Compute gradients with respect to model parameters.
+
+5. Update model weights:
+
+    Use an optimizer (e.g., Adam) to update weights based on gradients.
+
+6. Iterate over the dataset:
+
+    Repeat this process over many epochs to gradually improve the model.
+
+7. Save the updated model weights:
+
+    After training, save the fine-tuned model weights.
+
+    These represent your new RL fine-tuned LLM.
+
+8. Use the fine-tuned model for inference:
+
+    You can now prompt this model, and it should generate descriptions better aligned with your reward signal (e.g., more likely to get the guesser correct).

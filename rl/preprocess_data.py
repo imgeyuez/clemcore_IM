@@ -12,7 +12,6 @@ and -1 for games that failed.
 import os
 import json
 import argparse
-import csv
 
 # To Do: include the generation of a json? csv? where it automatically checks if there are batches 
 # entered or not. If it doesn't exist yet, create it, otherwise add a next batch to it 
@@ -44,11 +43,48 @@ def instance_tuplefication(turns):
     
     return tuplefication
 
+def save_batch_to_json(file_path, data_type, new_data):
+
+    if data_type == "ds":
+        file_path = file_path + "_ds.csv"
+    elif data_type == "dl":
+        file_path = file_path + "_dl.csv"
+    elif data_type == "dl_DS":
+        file_path = file_path + "_dl_DS.csv"
+    elif data_type == "ds_DS":
+        file_path = file_path + "_ds_DS.csv"
+    else:
+        file_path = file_path + "_human.csv"
+
+    print("Writing results to file:", file_path)
+
+    # Step 1: Check if file exists
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            try:
+                existing_data = json.load(f)
+            except json.JSONDecodeError:
+                existing_data = {}
+    else:
+        existing_data = {}
+
+    # Step 2: Determine next batch number
+    existing_batches = [key for key in existing_data.keys() if key.startswith('batch_')]
+    next_batch_number = len(existing_batches) + 1
+    batch_key = f"batch_{next_batch_number}"
+
+    # Step 3: Add the new batch
+    existing_data[batch_key] = new_data
+
+    # Step 4: Save back to file
+    with open(file_path, 'w') as f:
+        json.dump(existing_data, f, indent=2)
+    print("File written successfully.")
 
 # Path to the results directory
 RESULTS_PATH = r".\results"
 GAME = "referencegame"
-OUTPUT_PATH = ".\data.csv"
+OUTPUT_PATH = ".\data"
 
 # parser = argparse.ArgumentParser(description='Results-folder from referencegame to process data for fine-tuning.')
 
@@ -67,12 +103,8 @@ OUTPUT_PATH = ".\data.csv"
 #       t = guess (player 2)
 #       r = reward (1 or -1)
 
-# data for comprehension
-dl = list()
-# data for generation
-ds = list()
-
-d_human = list()
+# data for comprehension, generation, comprehension datasharing, generation datasharing, human data
+dl, ds, dl_DS, ds_DS, d_human = list(), list(), list(), list(), list()
 
 print("Start turning instances into tuple datapoints.")
 
@@ -134,32 +166,35 @@ print(f"Number of pure human datapoints: {len(d_human)}.")
 
 print("Start extension of Datasets.")
 # extend dl and ds 
-dl_extended = dl.copy()
-ds_extended = ds.copy()
+dl_DS.extend(dl)
+ds_DS.extend(ds)
 
 for datapoint in dl:
     if datapoint[-1] == 1:
-        ds_extended.append(datapoint)
+        ds_DS.append(datapoint)
 
 for datapoint in ds:
     if datapoint[-1] == 1:
-        dl_extended.append(datapoint)
+        dl_DS.append(datapoint)
 
-# export everything into a csv
 print("Finished dataset extensions.")
 
-print(f"Number total of comprehension datapoints: {len(dl_extended)}.")
-print(f"Number total of generation datapoints: {len(ds_extended)}.")
+print(f"Number total of comprehension datapoints: {len(dl_DS)}.")
+print(f"Number total of generation datapoints: {len(ds_DS)}.")
 
-try:
-    print("Writing results to file:", OUTPUT_PATH)
-    fields.to_csv(out_file, index=False)
-    print("File written successfully.")
-except Exception as e:
-    print("Error while writing the file:", e)
-    import traceback
-    traceback.print_exc()
+# export everything into a csv
+save_batch_to_json(OUTPUT_PATH, "dl", dl)
+save_batch_to_json(OUTPUT_PATH, "ds", dl)
+save_batch_to_json(OUTPUT_PATH, "dl_DS", dl_DS)
+save_batch_to_json(OUTPUT_PATH, "ds_DS", ds_DS)
+save_batch_to_json(OUTPUT_PATH, "human", d_human)
 
+
+"""
+Questions for today's meeting: 
+What model should I finetune? Llama 8b or Gemma which I got the key for?
+
+"""
 
 
 
