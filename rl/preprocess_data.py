@@ -13,25 +13,26 @@ import os
 import json
 import argparse
 
-# To Do: include the generation of a json? csv? where it automatically checks if there are batches 
-# entered or not. If it doesn't exist yet, create it, otherwise add a next batch to it 
 
 def instance_tuplefication(turns):
-    # turn 0: GM to Player 1 - I 
+    # turn 0: GM to Player 1 - I for ds
     # turn 1: Player 1 to GM - u 
     # turn 2: GM to GM - parse vs. parse_wrong (reward)
-    # turn 3: GM to Player 2 - irrelevant 
+    # turn 3: GM to Player 2 - I for dl
     # turn 4: Player 2 to GM - t 
     # turn 5: GM to GM - parse vs. parse_wrong (reward)
     
-    I = turns[0]["action"]["content"]
+    dsI = turns[0]["action"]["content"]
     u = turns[1]["action"]["content"]
+    dlI = []
+    
 
     if len(turns) == 3:
         t = ""
         r = -1
     
     elif len(turns) == 6:
+        dlI = turns[3]["action"]["content"]
         t = turns[4]["action"]["content"]
 
         if turns[5]["action"]["type"] == "parse_correct":
@@ -39,9 +40,17 @@ def instance_tuplefication(turns):
         else:
             r = -1
 
-    tuplefication = (I, u, t, r)
+    generation_tuplefication = (dsI, u, t, r)
+    if dlI:
+        comprehension_tuplefication = (dlI, u, t, r)
+
+        return generation_tuplefication, comprehension_tuplefication
+
+    else:
+        return generation_tuplefication
+
     
-    return tuplefication
+    
 
 def save_batch_to_json(file_path, data_type, new_data):
 
@@ -189,12 +198,6 @@ save_batch_to_json(OUTPUT_PATH, "dl_DS", dl_DS)
 save_batch_to_json(OUTPUT_PATH, "ds_DS", ds_DS)
 save_batch_to_json(OUTPUT_PATH, "human", d_human)
 
-
-"""
-Questions for today's meeting: 
-What model should I finetune? Llama 8b or Gemma which I got the key for?
-
-"""
 
 
 
