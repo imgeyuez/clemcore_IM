@@ -126,6 +126,7 @@ class ReferenceGameMaster(DialogueGameMaster):
             if p1_match:
                 return response
         elif player == self.instruction_follower:
+
             # Player 2 response parsing
             player_2_pattern = re.compile(self.game.player_2_response_pattern, re.IGNORECASE)
             p2_match = re.match(player_2_pattern, response)
