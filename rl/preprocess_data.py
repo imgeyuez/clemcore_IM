@@ -13,57 +13,18 @@ import os
 import json
 import argparse
 
-
-def instance_tuplefication(turns):
-    # turn 0: GM to Player 1 - I for ds
-    # turn 1: Player 1 to GM - u 
-    # turn 2: GM to GM - parse vs. parse_wrong (reward)
-    # turn 3: GM to Player 2 - I for dl
-    # turn 4: Player 2 to GM - t 
-    # turn 5: GM to GM - parse vs. parse_wrong (reward)
-    
-    dsI = turns[0]["action"]["content"]
-    u = turns[1]["action"]["content"]
-    dlI = []
-    
-
-    if len(turns) == 3:
-        t = ""
-        r = -1
-    
-    elif len(turns) == 6:
-        dlI = turns[3]["action"]["content"]
-        t = turns[4]["action"]["content"]
-
-        if turns[5]["action"]["type"] == "parse_correct":
-            r = 1
-        else:
-            r = -1
-
-    generation_tuplefication = (dsI, u, t, r)
-    if dlI:
-        comprehension_tuplefication = (dlI, u, t, r)
-
-        return generation_tuplefication, comprehension_tuplefication
-
-    else:
-        return generation_tuplefication
-
-    
-    
-
-def save_batch_to_json(file_path, data_type, new_data):
+def save_batch_to_json(file_path: str, data_type, new_data):
 
     if data_type == "ds":
-        file_path = file_path + "_ds.csv"
+        file_path = file_path + "/ds.json"
     elif data_type == "dl":
-        file_path = file_path + "_dl.csv"
+        file_path = file_path + "/dl.json"
     elif data_type == "dl_DS":
-        file_path = file_path + "_dl_DS.csv"
+        file_path = file_path + "/dl_DS.json"
     elif data_type == "ds_DS":
-        file_path = file_path + "_ds_DS.csv"
+        file_path = file_path + "/ds_DS.json"
     else:
-        file_path = file_path + "_human.csv"
+        file_path = file_path + "/human.json"
 
     print("Writing results to file:", file_path)
 
@@ -93,7 +54,7 @@ def save_batch_to_json(file_path, data_type, new_data):
 # Path to the results directory
 RESULTS_PATH = r".\results"
 GAME = "referencegame"
-OUTPUT_PATH = ".\data"
+OUTPUT_PATH = r"C:\Users\imgey\Desktop\MASTERS\MASTER_POTSDAM\SoSe25\IM\codespace\data"
 
 # parser = argparse.ArgumentParser(description='Results-folder from referencegame to process data for fine-tuning.')
 
@@ -113,7 +74,11 @@ OUTPUT_PATH = ".\data"
 #       r = reward (1 or -1)
 
 # data for comprehension, generation, comprehension datasharing, generation datasharing, human data
-dl, ds, dl_DS, ds_DS, d_human = list(), list(), list(), list(), list()
+dl, ds, dl_DS, ds_DS = list(), list(), list(), list()
+d_human = {
+    "generation": list(),
+    "comprehension": list()
+}
 
 print("Start turning instances into tuple datapoints.")
 
@@ -147,26 +112,81 @@ for experiment in os.scandir(RESULTS_PATH):
                 if file.name == "interactions.json":
                     with open(file.path, "r") as f:
                         interactions = json.load(f)
-                    
+
                     turns = interactions["turns"][0]
 
-                    tuple_datapoint = instance_tuplefication(turns)
-
+                    # check if player 1 or player 2 is human
+                    # to determine where the datapoint belongs to
+                    # generation or understanding
                     # determine to which dataset the instance belongs 
                     player1 = interactions["players"]["Player 1"]["model_name"]
                     if player1 == "human":
                         # both players are human
                         if interactions["players"]["Player 2"]["model_name"] == "human":
-                            d_human.append(tuple_datapoint)
-
+                            d_set = "human"
                         else:
                             # model_role = "guesser"
-                            dl.append(tuple_datapoint)
-
+                            d_set = "dl"
                     else:
                         # model_role = "describer"
-                        ds.append(tuple_datapoint)
+                        d_set = "ds"
 
+                    # turn 0: GM to Player 1 - I for ds
+                    # turn 1: Player 1 to GM - u 
+                    # turn 2: GM to GM - parse vs. parse_wrong (reward)
+                    # turn 3: GM to Player 2 - I for dl
+                    # turn 4: Player 2 to GM - t 
+                    # turn 5: GM to GM - parse vs. parse_wrong (reward)
+
+                    if len(turns) == 6: # both players took their turn
+                        if turns[5]["action"]["type"] == "parse_correct": # determine reward
+                            r = 1
+                        else:
+                            r = -1
+                        t = turns[5] # target 
+                        u = turns[2] # description
+                        if d_set == "dl":
+                            dl_I = turns[3] # prompt for player 2
+                            dl.append((dl_I, u, t, r)) # append datapoint to comprehension
+                        elif d_set == "ds":
+                            ds_I = turns[0]
+                            ds.append((ds_I, u, t, r)) # append datapoint to generation
+
+                        else: # human vs. human
+                            ds_I = turns[0]
+                            dl_I = turns[3]
+                            d_human["generation"].append((ds_I, u, t, r))
+                            d_human["generation"].append((dl_I, u, t, r))
+
+                    elif len(turns) == 3: # player 1 did a mistake - player 2 didn't get to play
+
+                        # ToDo: Play 1 some rounds where it fails after describer to see the output format ä
+
+                        r = turns[-1] # reward
+                        u = turns[2] # description
+
+                        # generate expression for target 
+                        t = "Answer: "
+                        # open instance-file
+                        instance_file = "".join(episode.path, "/instance.json")
+                        with open(instance_file, "r") as f:
+                            instance = json.load(f)
+                        target_grid = instance["target_grid_name"][0]
+                        t = t + target_grid
+
+                        # these instances cannot go into comprehension dataset
+                        # as the model does not generate anything
+                        if d_set == "ds":
+                            ds_I = turns[0]
+                            ds.append((ds_I, u, t, r)) # append datapoint to generation
+
+                        else: # human vs. human
+                            ds_I = turns[0]
+                            dl_I = turns[3]
+                            d_human["generation"].append((ds_I, u, t, r))
+                            d_human["comprehension"].append((dl_I, u, t, r))
+
+                    
 print("Finished turning instances into datapoints.")
 
 print(f"Number of comprehension datapoints: {len(dl)}.")
